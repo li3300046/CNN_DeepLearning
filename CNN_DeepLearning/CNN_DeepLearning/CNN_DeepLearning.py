@@ -60,6 +60,7 @@ class CNN(nn.Module):
         x = self.fc3(x)  # Output layer (logits)
         return F.log_softmax(x, dim=1)
 
+# Define CNN Model With 5 * 5 Kernal
 class CNN5x5(nn.Module):
     def __init__(self):
         super(CNN5x5, self).__init__()
@@ -78,12 +79,6 @@ class CNN5x5(nn.Module):
         x = F.relu(self.fc2(x))  # FC2 -> ReLU
         x = self.fc3(x)  # Output layer (logits)
         return x
-
-# Initialize model, loss function, and optimizer
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CNN().to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Training Loop
 def train(model, train_loader, criterion, optimizer, epochs=5):
@@ -117,6 +112,10 @@ def test(model, test_loader):
             correct += (predicted == labels).sum().item()
     print(f"Test Accuracy: {100 * correct / total:.2f}%")
 
+# Set device to accelerate training
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Set Loss Function
+criterion = nn.CrossEntropyLoss()
 epochs = 5
 # Initialize and train models
 print("\nTraining CNN3x3:")

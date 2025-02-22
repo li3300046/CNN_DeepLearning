@@ -44,21 +44,40 @@ test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 6, kernel_size=3, stride=1, padding=1)  # kernel_size3X3,padding1
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)  # MaxPool 2X2
-        self.conv2 = nn.Conv2d(6, 16, kernel_size=3, stride=1, padding=1)  # kernel_size3X3,padding1
-        self.fc1 = nn.Linear(16 * 7 * 7, 120)  # Fully connected
+        self.conv1 = nn.Conv2d(1, 6, kernel_size=3, stride=1, padding=0)  # kernel_size3x3, stride=1
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)  # MaxPool 2x2
+        self.conv2 = nn.Conv2d(6, 16, kernel_size=3, stride=1, padding=0)  # kernel_size3x3
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)  # Fully connected layer (16 channels, 5x5 image size)
         self.fc2 = nn.Linear(120, 84)  # Fully connected
         self.fc3 = nn.Linear(84, 10)  # Output layer
     
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))  # Conv1 -> ReLU -> Pool
         x = self.pool(F.relu(self.conv2(x)))  # Conv2 -> ReLU -> Pool
-        x = x.view(-1, 16 * 7 * 7)  # Flatten
+        x = x.view(-1, 16 * 5 * 5)  # Flatten to 400
         x = F.relu(self.fc1(x))  # FC1 -> ReLU
         x = F.relu(self.fc2(x))  # FC2 -> ReLU
         x = self.fc3(x)  # Output layer (logits)
         return F.log_softmax(x, dim=1)
+
+class CNN5x5(nn.Module):
+    def __init__(self):
+        super(CNN5x5, self).__init__()
+        self.conv1 = nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0)  # kernel_size5x5, padding=0
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)  # MaxPool 2x2
+        self.conv2 = nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0)  # kernel_size5x5, padding=0
+        self.fc1 = nn.Linear(16 * 4 * 4, 120)  # Fully connected layer (16 channels, 4x4 image size)
+        self.fc2 = nn.Linear(120, 84)  # Fully connected
+        self.fc3 = nn.Linear(84, 10)  # Output layer
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))  # Conv1 -> ReLU -> Pool
+        x = self.pool(F.relu(self.conv2(x)))  # Conv2 -> ReLU -> Pool
+        x = torch.flatten(x, 1)  # Flatten to 256
+        x = F.relu(self.fc1(x))  # FC1 -> ReLU
+        x = F.relu(self.fc2(x))  # FC2 -> ReLU
+        x = self.fc3(x)  # Output layer (logits)
+        return x
 
 # Initialize model, loss function, and optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -69,6 +88,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 # Training Loop
 def train(model, train_loader, criterion, optimizer, epochs=5):
     model.train()
+    epoch_losses = []  # List to store loss for each epoch
     for epoch in range(epochs):
         total_loss = 0
         for images, labels in train_loader:
@@ -79,7 +99,9 @@ def train(model, train_loader, criterion, optimizer, epochs=5):
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
+        epoch_losses.append(total_loss / len(train_loader))  # Append loss for this epoch
         print(f"Epoch {epoch+1}, Loss: {total_loss/len(train_loader):.4f}")
+    return epoch_losses  # Return loss for all epochs
 
 # Testing Loop
 def test(model, test_loader):
@@ -95,6 +117,25 @@ def test(model, test_loader):
             correct += (predicted == labels).sum().item()
     print(f"Test Accuracy: {100 * correct / total:.2f}%")
 
-# Train and test the model
-train(model, train_loader, criterion, optimizer, epochs=5)
-test(model, test_loader)
+epochs = 5
+# Initialize and train models
+print("\nTraining CNN3x3:")
+model_3x3 = CNN().to(device)
+optimizer_3x3 = optim.Adam(model_3x3.parameters(), lr=0.001)  # Reinitialize optimizer
+loss_3x3 = train(model_3x3, train_loader, criterion, optimizer_3x3, epochs)
+test(model_3x3, test_loader)
+
+print("\nTraining CNN5x5:")
+model_5x5 = CNN5x5().to(device)
+optimizer_5x5 = optim.Adam(model_5x5.parameters(), lr=0.001)  # Reinitialize optimizer
+loss_5x5 = train(model_5x5, train_loader, criterion, optimizer_5x5, epochs)
+test(model_5x5, test_loader)
+
+# Plot the losses for both models
+plt.plot(range(1, epochs+1), loss_3x3, label="CNN3x3 Loss")
+plt.plot(range(1, epochs+1), loss_5x5, label="CNN5x5 Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.title("Epochs vs Loss")
+plt.legend()
+plt.show()

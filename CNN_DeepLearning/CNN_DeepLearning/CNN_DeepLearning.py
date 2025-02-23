@@ -78,7 +78,26 @@ class CNN5x5(nn.Module):
         x = F.relu(self.fc1(x))  # FC1 -> ReLU
         x = F.relu(self.fc2(x))  # FC2 -> ReLU
         x = self.fc3(x)  # Output layer (logits)
-        return x
+        return F.log_softmax(x, dim=1)
+
+class CNN5x5_Modified(nn.Module):
+    def __init__(self):
+        super(CNN5x5_Modified, self).__init__()
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=5, stride=1, padding=0)  # (1, 8)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)  # MaxPool 2x2
+        self.conv2 = nn.Conv2d(8, 32, kernel_size=5, stride=1, padding=0)  # (8, 32)
+        self.fc1 = nn.Linear(32 * 4 * 4, 120)  # Adjusted for new feature map size
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+    
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))  # Conv1 -> ReLU -> Pool
+        x = self.pool(F.relu(self.conv2(x)))  # Conv2 -> ReLU -> Pool
+        x = torch.flatten(x, 1)  # Flatten
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return F.log_softmax(x, dim=1)
 
 # Training Loop
 def train(model, train_loader, criterion, optimizer, epochs=5):
@@ -130,9 +149,16 @@ optimizer_5x5 = optim.Adam(model_5x5.parameters(), lr=0.001)  # Reinitialize opt
 loss_5x5 = train(model_5x5, train_loader, criterion, optimizer_5x5, epochs)
 test(model_5x5, test_loader)
 
+print("\nTraining CNN5x5_Modified:")
+model_5x5_Modified = CNN5x5_Modified().to(device)
+optimizer_5x5_Modified = optim.Adam(model_5x5_Modified.parameters(), lr=0.001)  # Reinitialize optimizer
+loss_5x5_Modified = train(model_5x5_Modified, train_loader, criterion, optimizer_5x5_Modified, epochs)
+test(model_5x5_Modified, test_loader)
+
 # Plot the losses for both models
 plt.plot(range(1, epochs+1), loss_3x3, label="CNN3x3 Loss")
 plt.plot(range(1, epochs+1), loss_5x5, label="CNN5x5 Loss")
+plt.plot(range(1, epochs+1), loss_5x5_Modified, label="CNN5x5_Modified Loss")
 plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.title("Epochs vs Loss")
